@@ -45,12 +45,13 @@ type Tokens struct {
 	Timeout      int64  `json:"expires_in"`
 }
 
-func GetAccessToken(configFile *ini.File, username string, configPath string) string {
+func RetrieveTokens(configFile *ini.File, configPath string) (string, string) {
 	var accessToken string
-
-	tmp := configFile.Section("Temp").Key("expires").String()
 	var tokenExpirationTime int
 	var err error
+
+	tmp := configFile.Section("Temp").Key("expires").String()
+	username := configFile.Section("Reddit").Key("username").String()
 
 	if tmp == "" {
 		tokenExpirationTime = 0
@@ -63,7 +64,9 @@ func GetAccessToken(configFile *ini.File, username string, configPath string) st
 
 	if time.Now().Unix() > int64(tokenExpirationTime) {
 		var tokens Tokens
+
 		refreshToken := configFile.Section("Reddit").Key("refresh_token").String()
+
 		if refreshToken == "" || username == "" {
 			tokens, err = login() // login to reddit and retrieve access token
 			if err != nil {
@@ -85,7 +88,7 @@ func GetAccessToken(configFile *ini.File, username string, configPath string) st
 		accessToken = configFile.Section("Temp").Key("token").String()
 		fmt.Println("Token still valid")
 	}
-	return accessToken
+	return accessToken, username
 }
 
 func login() (Tokens, error) {
@@ -143,7 +146,6 @@ func login() (Tokens, error) {
 	}
 
 	code := extractCode(data)
-	fmt.Println(code)
 
 	tokens := retrieveRefreshToken(code)
 	tokens.UserName = retrieveUserName(tokens.AccessToken)
@@ -240,7 +242,10 @@ func retrieveAccessToken(refreshToken string) Tokens {
 
 func retrieveUserName(token string) string {
 	meUrl := "https://oauth.reddit.com/api/v1/me.json"
-	data := requestUrl(token, meUrl)
+	data, status := requestUrl(token, meUrl)
+	if status != 200 {
+		log.Fatalln("failed to retrieve username with code", status, data)
+	}
 	return data["name"].(string)
 }
 
