@@ -34,7 +34,6 @@ func RetrieveSavedPosts(token string, userName string, downloadPath string, subr
 func filterResults(apiPosts []interface{}, downloadedPosts map[string]interface{}, subreddits []string) map[string]interface{} {
 
 	for i := range apiPosts {
-
 		data := apiPosts[i].(map[string]interface{})["data"].(map[string]interface{})
 
 		fmt.Println("data: ", data["title"])
@@ -81,6 +80,10 @@ func filterResults(apiPosts []interface{}, downloadedPosts map[string]interface{
 			}
 			downloadedPosts[id] = tmp
 		} else {
+			if data["url"] == nil {
+				fmt.Println("skipping", data["title"], "no image url found")
+				continue
+			}
 			// single image posts
 			fmt.Println("adding", data["title"])
 			downloadedPosts[id] = append(tmp, map[string]bool{data["url"].(string): false})
@@ -94,22 +97,17 @@ func paginateResults(token string, userName string) []interface{} {
 	after := ""
 	for {
 		savedUrl := "https://oauth.reddit.com/user/" + userName + "/saved.json?limit=100&after=" + after
-
 		tmpResults, status := requestUrl(token, savedUrl)
 		if status != 200 {
 			log.Fatalln("Error retrieving saved posts:", status, "\n", tmpResults)
 		}
 
 		posts := tmpResults["data"].(map[string]interface{})["children"].([]interface{})
-		fmt.Println("posts: ", len(posts))
 		if len(posts) == 0 {
 			break
 		}
-
 		apiPosts = append(apiPosts, posts...)
 		after = posts[len(posts)-1].(map[string]interface{})["data"].(map[string]interface{})["name"].(string)
-		fmt.Println("after: ", after)
-		//time.Sleep(500 * time.Millisecond)
 	}
 	return apiPosts
 }
@@ -117,12 +115,8 @@ func paginateResults(token string, userName string) []interface{} {
 func CreateDownloadLink(url string) string {
 	// input https://preview.redd.it/oo3e09iwkmua1.jpg?width=3840&format=pjpg&auto=...
 	// output https://i.redd.it/oo3e09iwkmua1.jpg
-
-	// removes everything after ?
-	tmp := strings.Split(url, "?")[0]
-
-	// replaces preview with i for full resolution image link
-	return strings.Replace(tmp, "preview", "i", -1)
+	tmp := strings.Split(url, "?")[0]               // removes everything after ?
+	return strings.Replace(tmp, "preview", "i", -1) // replaces preview with i for full resolution image link
 }
 
 func isItemInList(item string, list []string) bool {
@@ -139,7 +133,6 @@ func requestUrl(token string, meUrl string) (map[string]interface{}, int) {
 	if err != nil {
 		fmt.Println(err)
 	}
-
 	req.Header.Add("Authorization", authorization+token)
 	req.Header.Add("User-Agent", userAgent)
 
