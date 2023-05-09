@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"wallpaperGo/files"
 )
@@ -15,24 +16,28 @@ const (
 )
 
 func RetrieveSavedPosts(token string, userName string, downloadPath string, subreddits []string) error {
-	savedUrl := "https://oauth.reddit.com/user/" + userName + "/saved.json"
-	postsFromApi := requestUrl(token, savedUrl)
+	if len(subreddits) == 0 {
+		log.Fatalln("No subreddits specified\nPlease add subreddits to config.ini")
+	}
+
+	apiPosts := paginateResults(token, userName)
+
+	fmt.Println("Retrieved " + strconv.Itoa(len(apiPosts)) + " saved posts from reddit")
 
 	downloadedPosts := files.ReadJsonFile(downloadPath)
-
-	fmt.Println(downloadedPosts)
-	posts := filterResults(postsFromApi, downloadedPosts, subreddits)
+	posts := filterResults(apiPosts, downloadedPosts, subreddits)
 
 	files.WriteToJsonFile(downloadPath, posts)
 	return nil
 }
 
-func filterResults(apiPosts map[string]interface{}, downloadedPosts map[string]interface{}, subreddits []string) map[string]interface{} {
-	children := apiPosts["data"].(map[string]interface{})["children"].([]interface{})
-	fmt.Println()
+func filterResults(apiPosts []interface{}, downloadedPosts map[string]interface{}, subreddits []string) map[string]interface{} {
 
-	for i := range children {
-		data := children[i].(map[string]interface{})["data"].(map[string]interface{})
+	for i := range apiPosts {
+
+		data := apiPosts[i].(map[string]interface{})["data"].(map[string]interface{})
+
+		fmt.Println("data: ", data["title"])
 
 		// filter out posts already downloaded
 		var tmpDown []string
@@ -61,6 +66,10 @@ func filterResults(apiPosts map[string]interface{}, downloadedPosts map[string]i
 		// gallery posts
 		var tmp []interface{}
 		if data["is_gallery"] == true {
+			if data["media_metadata"] == nil {
+				fmt.Println("skipping", data["title"], "no media metadata found")
+				continue
+			}
 			fmt.Println("adding", data["title"])
 			images := data["media_metadata"].(map[string]interface{})
 
@@ -78,6 +87,31 @@ func filterResults(apiPosts map[string]interface{}, downloadedPosts map[string]i
 		}
 	}
 	return downloadedPosts
+}
+
+func paginateResults(token string, userName string) []interface{} {
+	var apiPosts []interface{}
+	after := ""
+	for {
+		savedUrl := "https://oauth.reddit.com/user/" + userName + "/saved.json?limit=100&after=" + after
+
+		tmpResults, status := requestUrl(token, savedUrl)
+		if status != 200 {
+			log.Fatalln("Error retrieving saved posts:", status, "\n", tmpResults)
+		}
+
+		posts := tmpResults["data"].(map[string]interface{})["children"].([]interface{})
+		fmt.Println("posts: ", len(posts))
+		if len(posts) == 0 {
+			break
+		}
+
+		apiPosts = append(apiPosts, posts...)
+		after = posts[len(posts)-1].(map[string]interface{})["data"].(map[string]interface{})["name"].(string)
+		fmt.Println("after: ", after)
+		//time.Sleep(500 * time.Millisecond)
+	}
+	return apiPosts
 }
 
 func CreateDownloadLink(url string) string {
@@ -100,13 +134,14 @@ func isItemInList(item string, list []string) bool {
 	return false
 }
 
-func requestUrl(token string, meUrl string) map[string]interface{} {
+func requestUrl(token string, meUrl string) (map[string]interface{}, int) {
 	req, err := http.NewRequest("GET", meUrl, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	req.Header.Set("Authorization", authorization+token)
+	req.Header.Add("Authorization", authorization+token)
+	req.Header.Add("User-Agent", userAgent)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -124,5 +159,5 @@ func requestUrl(token string, meUrl string) map[string]interface{} {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return data
+	return data, resp.StatusCode
 }
