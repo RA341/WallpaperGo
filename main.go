@@ -8,7 +8,6 @@ import (
 
 const (
 	coreFolder      = "./wallreddit"
-	downloads       = "./wallpapers"
 	configPath      = coreFolder + "/" + "config.ini"
 	downloadHistory = coreFolder + "/" + "download_history.json"
 )
@@ -17,6 +16,7 @@ func main() {
 	// check if local configPath files exist
 	// check for flags
 	// download_history.json
+	downloads := "./wallpapers"
 
 	paths := files.PathStruct{
 		CoreFolder:      coreFolder,
@@ -24,8 +24,6 @@ func main() {
 		DownloadHistory: downloadHistory,
 		Downloads:       downloads,
 	}
-
-	var accessToken string
 
 	// check for files
 	files.CreateSupportFiles(paths)
@@ -44,6 +42,24 @@ func main() {
 		log.Fatalln("Failed to retrieve saved posts: ", err)
 	}
 
-	// download images
-	//files.DownloadImages(downloads, downloadHistory)
+	downloads = configFile.Section("Downloads").Key("download_path").String() // get download folder
+
+	//download images
+	files.DownloadImages(downloads, downloadHistory)
 }
+
+//func filePicker() string {
+//	selectedFile, err := cfdutil.ShowPickFolderDialog(cfd.DialogConfig{
+//		Title:  "Pick download folder",
+//		Role:   "PickDownloadFolder",
+//		Folder: "C:\\",
+//	})
+//
+//	if err == cfd.ErrorCancelled {
+//		log.Fatal("Please select a folder")
+//	} else if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	return selectedFile
+//}
