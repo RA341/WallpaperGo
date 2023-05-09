@@ -52,7 +52,7 @@ func filterResults(apiPosts []interface{}, downloadedPosts map[string]interface{
 
 		// filter out posts not in the list of subreddits
 		if isItemInList(data["subreddit"].(string), subreddits) != true {
-			fmt.Println("skipping", data["title"], "not in list of subreddits")
+			fmt.Println("skipping", data["subreddit"], "not in list of subreddits")
 			continue
 		}
 
