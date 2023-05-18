@@ -67,13 +67,20 @@ func RetrieveTokens(configFile *ini.File, configPath string) (string, string) {
 
 		refreshToken := configFile.Section("Reddit").Key("refresh_token").String()
 
-		if refreshToken == "" || username == "" {
+		if refreshToken == "" {
 			tokens, err = login() // login to reddit and retrieve access token
 			if err != nil {
 				log.Fatalln("Failed to login: ", err)
 			}
 		} else {
 			tokens = retrieveAccessToken(refreshToken) // get access token
+		}
+
+		// set username if refresh token exists
+		if username == "" {
+			tokens.UserName = retrieveUserName(refreshToken)
+		} else {
+			tokens.UserName = username
 		}
 
 		// set access token expiry time
