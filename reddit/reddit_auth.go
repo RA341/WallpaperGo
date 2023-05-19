@@ -2,10 +2,9 @@ package reddit
 
 // reference https://github.com/reddit-archive/reddit/wiki/OAuth2#retrieving-the-access-token
 //url for reddit auth
-//https://www.reddit.com/api/v1/authorize?client_id=63NRVVv_imYBeWE9Dwb-eg&duration=permanent&redirect_uri=http%3A%2F%2Flocalhost%3A8080&response_type=code&scope=identity+history&state=9964
 //https://www.reddit.com/api/v1/
 //	authorize?
-//		client_id=63NRVVv_imYBeWE9Dwb-eg &
+//		client_id= &
 //		duration=permanent &
 //		redirect_uri=http%3A%2F%2Flocalhost%3A8080 &
 //		response_type=code &
@@ -75,25 +74,22 @@ func RetrieveTokens(configFile *ini.File, configPath string) (string, string) {
 		} else {
 			tokens = retrieveAccessToken(refreshToken) // get access token
 		}
-
 		// set username if refresh token exists
 		if username == "" {
 			tokens.UserName = retrieveUserName(refreshToken)
 		} else {
 			tokens.UserName = username
 		}
-
 		// set access token expiry time
 		tokens.Timeout = time.Now().Unix() + tokens.Timeout
+
 		err = SaveTokens(configFile, configPath, tokens)
 		if err != nil {
 			log.Fatalln("Failed to save tokens: ", err)
 		}
-		fmt.Println(tokens)
 		accessToken = tokens.AccessToken
 	} else {
 		accessToken = configFile.Section("Temp").Key("token").String()
-		fmt.Println("Token still valid")
 	}
 	return accessToken, username
 }
@@ -153,7 +149,6 @@ func login() (Tokens, error) {
 	}
 
 	code := extractCode(data)
-
 	tokens := retrieveRefreshToken(code)
 	tokens.UserName = retrieveUserName(tokens.AccessToken)
 	return tokens, nil
