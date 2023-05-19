@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"path/filepath"
 	"wallpaperGo/files"
 	"wallpaperGo/reddit"
 )
@@ -18,12 +19,7 @@ func main() {
 	// download_history.json
 	downloads := "./wallpapers"
 
-	paths := files.PathStruct{
-		CoreFolder:      coreFolder,
-		ConfigPath:      configPath,
-		DownloadHistory: downloadHistory,
-		Downloads:       downloads,
-	}
+	paths := convertPaths(coreFolder, configPath, downloadHistory, downloads)
 
 	// check for files
 	files.CreateSupportFiles(paths)
@@ -46,6 +42,27 @@ func main() {
 
 	//download images
 	files.DownloadImages(downloads, downloadHistory)
+}
+
+func convertPaths(core string, config string, history string, downloads string) files.PathStruct {
+
+	core, err := filepath.Abs(core)
+	config, err = filepath.Abs(config)
+	history, err = filepath.Abs(history)
+	downloads, err = filepath.Abs(downloads)
+
+	if err != nil {
+		log.Fatalln("Failed to get absolute directory: ", err)
+	}
+
+	paths := files.PathStruct{
+		CoreFolder:      coreFolder,
+		ConfigPath:      configPath,
+		DownloadHistory: downloadHistory,
+		Downloads:       downloads,
+	}
+
+	return paths
 }
 
 //func filePicker() string {
