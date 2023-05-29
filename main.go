@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"github.com/urfave/cli/v2"
 	"log"
+	"os"
 	"path/filepath"
 	"wallpaperGo/files"
 	"wallpaperGo/reddit"
@@ -14,17 +17,51 @@ const (
 )
 
 func main() {
-	// check if local configPath files exist
-	// check for flags
-	// download_history.json
-	downloads := "./wallpapers"
+	app := &cli.App{
+		Commands: []*cli.Command{
+			{
+				Name:    "go",
+				Aliases: []string{"g"},
+				Usage:   "download wallpapers from saved reddit posts",
+				Action: func(cCtx *cli.Context) error {
+					path := cCtx.String("download")
+					normalRun(path)
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "download",
+						Value: "",
+						Usage: "set a download path for wallpapers",
+					},
+				},
+			},
+		},
+	}
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	paths := convertPaths(coreFolder, configPath, downloadHistory, downloads)
+func normalRun(downloadPath string) {
+	// override existing download path from the config file
+	if files.PathExists(configPath) != true || downloadPath != "" {
 
-	// check for files
-	files.CreateSupportFiles(paths)
+		if downloadPath == "" {
+			fmt.Println("defaulting download path to ./downloads")
+			downloadPath = "./downloads" // set default download path in case no config file exists and no download path is provided
+		}
 
-	// load config file
+		paths := files.PathStruct{
+			CoreFolder:      convertToAbsPath(coreFolder),
+			ConfigPath:      convertToAbsPath(configPath),
+			DownloadHistory: convertToAbsPath(downloadHistory),
+			Downloads:       convertToAbsPath(downloadPath),
+		}
+
+		files.CreateSupportFiles(paths)
+	}
+
 	configFile, err := files.ReadConfig(configPath)
 	if err != nil {
 		log.Fatalln("Failed to read config file: ", err)
@@ -38,31 +75,26 @@ func main() {
 		log.Fatalln("Failed to retrieve saved posts: ", err)
 	}
 
-	downloads = configFile.Section("Downloads").Key("download_path").String() // get download folder
+	downloads := configFile.Section("Downloads").Key("download_path").String() // get download folder
+
+	if downloads == "" {
+		//downloads= filePicker() todo add this
+		downloads = "./downloads"
+	}
 
 	//download images
 	files.DownloadImages(downloads, downloadHistory)
 }
 
-func convertPaths(core string, config string, history string, downloads string) files.PathStruct {
+func convertToAbsPath(path string) string {
 
-	core, err := filepath.Abs(core)
-	config, err = filepath.Abs(config)
-	history, err = filepath.Abs(history)
-	downloads, err = filepath.Abs(downloads)
+	tmp, err := filepath.Abs(path)
 
 	if err != nil {
 		log.Fatalln("Failed to get absolute directory: ", err)
 	}
 
-	paths := files.PathStruct{
-		CoreFolder:      coreFolder,
-		ConfigPath:      configPath,
-		DownloadHistory: downloadHistory,
-		Downloads:       downloads,
-	}
-
-	return paths
+	return tmp
 }
 
 //func filePicker() string {
