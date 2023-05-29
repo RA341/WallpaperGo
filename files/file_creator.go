@@ -14,26 +14,22 @@ type PathStruct struct {
 }
 
 func CreateSupportFiles(paths PathStruct) {
-	// create core folder if not exist
-	if pathExists(paths.CoreFolder) != true {
+	if PathExists(paths.CoreFolder) != true {
 		err := os.Mkdir(paths.CoreFolder, 0755)
 		if err != nil {
 			log.Fatalln("Failed to create", paths.CoreFolder)
 		}
 	}
 
-	// create configPath file if not exist
-	if pathExists(paths.ConfigPath) != true {
+	if PathExists(paths.ConfigPath) != true {
 		createConfigFile(paths.ConfigPath, paths.Downloads)
 	}
 
-	// create download history file if not exist
-	if pathExists(paths.DownloadHistory) != true {
+	if PathExists(paths.DownloadHistory) != true {
 		createDownloadHistoryFile(paths.DownloadHistory)
 	}
 
-	// create download directory if not exist
-	if pathExists(paths.Downloads) != true {
+	if PathExists(paths.Downloads) != true {
 		err := os.Mkdir(paths.Downloads, 0755)
 		if err != nil {
 			log.Fatalln("Failed to create downloads directory\n", paths.CoreFolder, "\nwith error\n", err)
@@ -90,7 +86,7 @@ func createDownloadHistoryFile(downloadHistoryPath string) {
 	WriteToJsonFile(downloadHistoryPath, map[string]interface{}{})
 }
 
-func pathExists(path string) bool {
+func PathExists(path string) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return false
 	}
