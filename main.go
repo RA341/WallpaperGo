@@ -25,15 +25,34 @@ func main() {
 				Usage:   "download wallpapers from saved reddit posts",
 				Action: func(cCtx *cli.Context) error {
 					path := cCtx.String("download")
+					_ = files.ReadSubredditList(cCtx.String("subreddit"))
 					normalRun(path)
 					return nil
 				},
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:  "download",
-						Value: "",
-						Usage: "set a download path for wallpapers",
+						Name:    "download",
+						Aliases: []string{"d"},
+						Value:   "",
+						Usage:   "set a download path for wallpapers",
 					},
+					&cli.StringFlag{
+						Name:    "subreddit",
+						Aliases: []string{"s"},
+						Value:   "",
+						Usage:   "set subreddits eg: meme,memes",
+					},
+				},
+			},
+			{
+				Name:    "download",
+				Aliases: []string{"g"},
+				Usage:   "Downloads image directly from a reddit link, eg: wallpaperGo download https://www.reddit.com/r/wallpaper/9z2j5s/4k_minimalist_mountain/",
+				Action: func(cCtx *cli.Context) error {
+					path := cCtx.String("download")
+					_ = files.ReadSubredditList(cCtx.String("subreddit"))
+					normalRun(path)
+					return nil
 				},
 			},
 		},
@@ -67,7 +86,7 @@ func normalRun(downloadPath string) {
 		log.Fatalln("Failed to read config file: ", err)
 	}
 
-	subreddit := files.ReadListFromConfig(configFile.Section("Reddit").Key("subreddit_list").String()) //load subreddit list
+	subreddit := files.ReadSubredditList(configFile.Section("Reddit").Key("subreddit_list").String()) //load subreddit list
 
 	accessToken, username := helper.RetrieveTokens(configFile, configPath)
 	err = reddit.RetrieveSavedPosts(accessToken, username, downloadHistory, subreddit)

@@ -10,8 +10,8 @@ func ReadConfig(configPath string) (*ini.File, error) {
 	return ini.Load(configPath)
 }
 
-// ReadListFromConfig read csv seperated string and covert to array
-func ReadListFromConfig(stringArray string) []string {
+// ReadSubredditList read csv seperated string and covert to array
+func ReadSubredditList(stringArray string) []string {
 	return strings.Split(stringArray, ",")
 }
 
