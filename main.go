@@ -69,7 +69,7 @@ func normalRun(downloadPath string) {
 
 	subreddit := files.ReadListFromConfig(configFile.Section("Reddit").Key("subreddit_list").String()) //load subreddit list
 
-	accessToken, username := reddit.RetrieveTokens(configFile, configPath)
+	accessToken, username := helper.RetrieveTokens(configFile, configPath)
 	err = reddit.RetrieveSavedPosts(accessToken, username, downloadHistory, subreddit)
 	if err != nil {
 		log.Fatalln("Failed to retrieve saved posts: ", err)

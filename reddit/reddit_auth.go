@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/skratchdot/open-golang/open"
-	"gopkg.in/ini.v1"
 	"log"
 	"math/rand"
 	"net"
@@ -35,73 +34,7 @@ type Tokens struct {
 	Timeout      int64  `json:"expires_in"`
 }
 
-func RetrieveTokens(configFile *ini.File, configPath string) (string, string) {
-	var accessToken string
-	var tokenExpirationTime int
-	var err error
-
-	tmp := configFile.Section("Temp").Key("expires").String()
-	username := configFile.Section("Reddit").Key("username").String()
-
-	tokenExpirationTime = getTokenExpiration(tmp)
-
-	if time.Now().Unix() > int64(tokenExpirationTime) {
-		var tokens Tokens
-
-		refreshToken := configFile.Section("Reddit").Key("refresh_token").String()
-
-		if refreshToken == "" {
-			tokens, err = login() // login to reddit and retrieve access token
-			if err != nil {
-				log.Fatalln("Failed to login: ", err)
-			}
-		} else {
-			tokens = retrieveAccessToken(refreshToken) // get access token
-		}
-
-		tokens = checkUsername(username, tokens)
-
-		tokens.Timeout = time.Now().Unix() + tokens.Timeout // set access token expiry time
-
-		err = SaveTokens(configFile, configPath, tokens)
-		if err != nil {
-			log.Fatalln("Failed to save tokens: ", err)
-		}
-		accessToken = tokens.AccessToken
-		username = tokens.UserName
-		fmt.Println("token", tokens)
-	} else {
-		accessToken = configFile.Section("Temp").Key("token").String()
-	}
-
-	return accessToken, username
-}
-
-func checkUsername(username string, tokens Tokens) Tokens {
-	if username == "" {
-		tokens.UserName = retrieveUserName(tokens.AccessToken)
-	} else {
-		tokens.UserName = username
-	}
-	return tokens
-}
-
-func getTokenExpiration(time string) int {
-	var tokenExpirationTime int
-	var err error
-
-	if time == "" {
-		tokenExpirationTime = 0
-	} else {
-		tokenExpirationTime, err = strconv.Atoi(time)
-		if err != nil {
-			log.Fatalln("Failed to convert token expiration time to int: ", err)
-		}
-	}
-	return tokenExpirationTime
-}
-
-func login() (Tokens, error) {
+func Login() (Tokens, error) {
 	// generate random state (needed for reddit api)
 	rand.Seed(time.Now().UnixNano())
 	state := rand.Intn(65001)
@@ -155,7 +88,7 @@ func login() (Tokens, error) {
 	}
 
 	code := extractCode(data)
-	tokens := retrieveRefreshToken(code)
+	tokens := RetrieveRefreshToken(code)
 
 	return tokens, nil
 }
@@ -175,7 +108,7 @@ func extractCode(input string) string {
 	return ""
 }
 
-func retrieveRefreshToken(code string) Tokens {
+func RetrieveRefreshToken(code string) Tokens {
 	// creating form data
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
@@ -212,7 +145,7 @@ func retrieveRefreshToken(code string) Tokens {
 	return tokens
 }
 
-func retrieveAccessToken(refreshToken string) Tokens {
+func RetrieveAccessToken(refreshToken string) Tokens {
 
 	// creating form data
 	data := url.Values{}
@@ -248,7 +181,7 @@ func retrieveAccessToken(refreshToken string) Tokens {
 	return tokens
 }
 
-func retrieveUserName(token string) string {
+func RetrieveUserName(token string) string {
 	meUrl := "https://oauth.reddit.com/api/v1/me.json"
 	data, status := requestUrl(token, meUrl)
 
@@ -260,16 +193,4 @@ func retrieveUserName(token string) string {
 		log.Fatalln("failed to retrieve username EMPTY", data)
 	}
 	return data["name"].(string)
-}
-
-func SaveTokens(config *ini.File, configPath string, token Tokens) error {
-	// this function is here because putting it in files causes a circular dependency due to Tokens
-
-	config.Section("Reddit").Key("refresh_token").SetValue(token.RefreshToken)
-	config.Section("Reddit").Key("username").SetValue(token.UserName)
-	config.Section("Temp").Key("token").SetValue(token.AccessToken)
-	config.Section("Temp").Key("expires").SetValue(strconv.Itoa(int(token.Timeout)))
-
-	err := config.SaveTo(configPath)
-	return err
 }
