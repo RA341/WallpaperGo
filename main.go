@@ -5,8 +5,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
-	"path/filepath"
 	"wallpaperGo/files"
+	"wallpaperGo/helper"
 	"wallpaperGo/reddit"
 )
 
@@ -44,7 +44,7 @@ func main() {
 }
 
 func normalRun(downloadPath string) {
-	// override existing download path from the config file
+	// override existing download path from the config file if download path is provided
 	if files.PathExists(configPath) != true || downloadPath != "" {
 
 		if downloadPath == "" {
@@ -53,10 +53,10 @@ func normalRun(downloadPath string) {
 		}
 
 		paths := files.PathStruct{
-			CoreFolder:      convertToAbsPath(coreFolder),
-			ConfigPath:      convertToAbsPath(configPath),
-			DownloadHistory: convertToAbsPath(downloadHistory),
-			Downloads:       convertToAbsPath(downloadPath),
+			CoreFolder:      helper.ConvertToAbsPath(coreFolder),
+			ConfigPath:      helper.ConvertToAbsPath(configPath),
+			DownloadHistory: helper.ConvertToAbsPath(downloadHistory),
+			Downloads:       helper.ConvertToAbsPath(downloadPath),
 		}
 
 		files.CreateSupportFiles(paths)
@@ -69,7 +69,7 @@ func normalRun(downloadPath string) {
 
 	subreddit := files.ReadListFromConfig(configFile.Section("Reddit").Key("subreddit_list").String()) //load subreddit list
 
-	accessToken, username := reddit.RetrieveTokens(configFile, configPath) // get access token
+	accessToken, username := reddit.RetrieveTokens(configFile, configPath)
 	err = reddit.RetrieveSavedPosts(accessToken, username, downloadHistory, subreddit)
 	if err != nil {
 		log.Fatalln("Failed to retrieve saved posts: ", err)
@@ -84,17 +84,6 @@ func normalRun(downloadPath string) {
 
 	//download images
 	files.DownloadImages(downloads, downloadHistory)
-}
-
-func convertToAbsPath(path string) string {
-
-	tmp, err := filepath.Abs(path)
-
-	if err != nil {
-		log.Fatalln("Failed to get absolute directory: ", err)
-	}
-
-	return tmp
 }
 
 //func filePicker() string {
