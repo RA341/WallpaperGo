@@ -1,15 +1,6 @@
 package reddit
 
 // reference https://github.com/reddit-archive/reddit/wiki/OAuth2#retrieving-the-access-token
-//url for reddit auth
-//https://www.reddit.com/api/v1/
-//	authorize?
-//		client_id= &
-//		duration=permanent &
-//		redirect_uri=http%3A%2F%2Flocalhost%3A8080 &
-//		response_type=code &
-//		scope=identity+history &
-//		state=9964
 
 import (
 	"encoding/json"
@@ -52,14 +43,7 @@ func RetrieveTokens(configFile *ini.File, configPath string) (string, string) {
 	tmp := configFile.Section("Temp").Key("expires").String()
 	username := configFile.Section("Reddit").Key("username").String()
 
-	if tmp == "" {
-		tokenExpirationTime = 0
-	} else {
-		tokenExpirationTime, err = strconv.Atoi(tmp)
-		if err != nil {
-			log.Fatalln("Failed to convert token expiration time to int: ", err)
-		}
-	}
+	tokenExpirationTime = getTokenExpiration(tmp)
 
 	if time.Now().Unix() > int64(tokenExpirationTime) {
 		var tokens Tokens
@@ -74,29 +58,51 @@ func RetrieveTokens(configFile *ini.File, configPath string) (string, string) {
 		} else {
 			tokens = retrieveAccessToken(refreshToken) // get access token
 		}
-		// set username if refresh token exists
-		if username == "" {
-			tokens.UserName = retrieveUserName(refreshToken)
-		} else {
-			tokens.UserName = username
-		}
-		// set access token expiry time
-		tokens.Timeout = time.Now().Unix() + tokens.Timeout
+
+		tokens = checkUsername(username, tokens)
+
+		tokens.Timeout = time.Now().Unix() + tokens.Timeout // set access token expiry time
 
 		err = SaveTokens(configFile, configPath, tokens)
 		if err != nil {
 			log.Fatalln("Failed to save tokens: ", err)
 		}
 		accessToken = tokens.AccessToken
+		username = tokens.UserName
+		fmt.Println("token", tokens)
 	} else {
 		accessToken = configFile.Section("Temp").Key("token").String()
 	}
+
 	return accessToken, username
 }
 
-func login() (Tokens, error) {
+func checkUsername(username string, tokens Tokens) Tokens {
+	if username == "" {
+		tokens.UserName = retrieveUserName(tokens.AccessToken)
+	} else {
+		tokens.UserName = username
+	}
+	return tokens
+}
 
-	// creating the auth link
+func getTokenExpiration(time string) int {
+	var tokenExpirationTime int
+	var err error
+
+	if time == "" {
+		tokenExpirationTime = 0
+	} else {
+		tokenExpirationTime, err = strconv.Atoi(time)
+		if err != nil {
+			log.Fatalln("Failed to convert token expiration time to int: ", err)
+		}
+	}
+	return tokenExpirationTime
+}
+
+func login() (Tokens, error) {
+	// generate random state (needed for reddit api)
 	rand.Seed(time.Now().UnixNano())
 	state := rand.Intn(65001)
 
@@ -150,7 +156,7 @@ func login() (Tokens, error) {
 
 	code := extractCode(data)
 	tokens := retrieveRefreshToken(code)
-	tokens.UserName = retrieveUserName(tokens.AccessToken)
+
 	return tokens, nil
 }
 
@@ -245,14 +251,19 @@ func retrieveAccessToken(refreshToken string) Tokens {
 func retrieveUserName(token string) string {
 	meUrl := "https://oauth.reddit.com/api/v1/me.json"
 	data, status := requestUrl(token, meUrl)
+
 	if status != 200 {
 		log.Fatalln("failed to retrieve username with code", status, data)
+	}
+
+	if data["name"] == nil {
+		log.Fatalln("failed to retrieve username EMPTY", data)
 	}
 	return data["name"].(string)
 }
 
-// SaveTokens save tokens to config file
 func SaveTokens(config *ini.File, configPath string, token Tokens) error {
+	// this function is here because putting it in files causes a circular dependency due to Tokens
 
 	config.Section("Reddit").Key("refresh_token").SetValue(token.RefreshToken)
 	config.Section("Reddit").Key("username").SetValue(token.UserName)
