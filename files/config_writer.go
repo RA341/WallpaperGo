@@ -12,7 +12,11 @@ func ReadConfig(configPath string) (*ini.File, error) {
 
 // ReadSubredditList read csv seperated string and covert to array
 func ReadSubredditList(stringArray string) []string {
-	return strings.Split(stringArray, ",")
+	tmp := strings.Split(stringArray, ",")
+	if tmp[0] == "" { // first element is empty string if no subreddits are found
+		return nil
+	}
+	return tmp
 }
 
 // ConvertArrayToConfigList convert array to csv seperated string
